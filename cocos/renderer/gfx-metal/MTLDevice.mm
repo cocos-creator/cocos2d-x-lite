@@ -191,6 +191,10 @@ void CCMTLDevice::doDestroy() {
 //        EventDispatcher::removeCustomEventListener(EVENT_MEMORY_WARNING, _memoryAlarmListenerId);
 //        _memoryAlarmListenerId = 0;
 //    }
+    
+    if(!_bufferDependency.empty()) {
+        _bufferDependency.clear();
+    }
     if (_autoreleasePool) {
         [(NSAutoreleasePool*)_autoreleasePool drain];
         _autoreleasePool = nullptr;
@@ -259,6 +263,15 @@ void CCMTLDevice::present() {
     _numDrawCalls = queue->_numDrawCalls;
     _numInstances = queue->_numInstances;
     _numTriangles = queue->_numTriangles;
+    
+    for (auto iter = _bufferDependency.begin(); iter != _bufferDependency.end();) {
+        auto* ccBuf = static_cast<CCMTLBuffer*>(*iter);
+        if(!ccBuf->isPostRelied()) {
+            iter = _bufferDependency.erase(iter);
+        } else {
+            iter++;
+        }
+    }
 
     //hold this pointer before update _currentFrameIndex
     _currentBufferPoolId = _currentFrameIndex;
@@ -377,6 +390,16 @@ void CCMTLDevice::onMemoryWarning() {
 
 uint CCMTLDevice::preferredPixelFormat() {
     return static_cast<uint>([((CAMetalLayer*)_mtlLayer) pixelFormat]);
+}
+
+bool CCMTLDevice::checkDependency(Buffer* buf) {
+    auto iter = _bufferDependency.find(buf);
+    bool found = iter != _bufferDependency.end();
+    static_cast<CCMTLBuffer*>(buf)->setPostRelied(found);
+    if (!found) {
+        _bufferDependency.insert(buf);
+    }
+    return found;
 }
 
 } // namespace gfx

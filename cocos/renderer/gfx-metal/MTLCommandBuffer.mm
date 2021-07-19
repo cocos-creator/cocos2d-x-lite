@@ -526,18 +526,28 @@ void CCMTLCommandBuffer::updateBuffer(Buffer *buff, const void *data, uint size)
         CC_LOG_ERROR("CCMTLCommandBuffer::updateBuffer: buffer is nullptr.");
         return;
     }
-
-    CCMTLGPUBuffer stagingBuffer;
-    stagingBuffer.size = size;
-    _mtlDevice->gpuStagingBufferPool()->alloc(&stagingBuffer);
-    memcpy(stagingBuffer.mappedData, data, size);
-    id<MTLBlitCommandEncoder> encoder = [_mtlCommandBuffer blitCommandEncoder];
-    [encoder copyFromBuffer:stagingBuffer.mtlBuffer
-               sourceOffset:stagingBuffer.startOffset
-                   toBuffer:static_cast<CCMTLBuffer *>(buff)->getMTLBuffer()
-          destinationOffset:0
-                       size:size];
-    [encoder endEncoding];
+    
+    id<MTLBuffer> dstBuffer = static_cast<CCMTLBuffer *>(buff)->getMTLBuffer();
+    
+    auto* mtlDevice = CCMTLDevice::getInstance();
+    bool postRelied = mtlDevice->checkDependency(buff);
+    
+    if(buff->getMemUsage() == cc::gfx::MemoryUsageBit::DEVICE || postRelied) {
+        CCMTLGPUBuffer stagingBuffer;
+        stagingBuffer.size = size;
+        _mtlDevice->gpuStagingBufferPool()->alloc(&stagingBuffer);
+        memcpy(stagingBuffer.mappedData, data, size);
+        id<MTLBlitCommandEncoder> encoder = [_mtlCommandBuffer blitCommandEncoder];
+        [encoder copyFromBuffer:stagingBuffer.mtlBuffer
+                   sourceOffset:stagingBuffer.startOffset
+                       toBuffer:dstBuffer
+              destinationOffset:0
+                           size:size];
+        [encoder endEncoding];
+    } else {
+        //memset(dstBuffer.contents, 0, size);
+        memcpy(dstBuffer.contents, data, size);
+    }
 }
 
 void CCMTLCommandBuffer::copyBuffersToTexture(const uint8_t *const *buffers, Texture *texture, const BufferTextureCopy *regions, uint count) {

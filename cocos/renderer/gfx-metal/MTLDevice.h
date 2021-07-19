@@ -66,6 +66,7 @@ public:
     void resize(uint width, uint height) override;
     void acquire() override;
     void present() override;
+    bool checkDependency(Buffer* mtlBuffer);
 
     void onPresentCompleted();
     void* getCurrentDrawable();
@@ -129,6 +130,7 @@ protected:
     uint _currentFrameIndex = 0;
     CCMTLSemaphore *_inFlightSemaphore = nullptr;
     CC_UNUSED uint32_t _memoryAlarmListenerId = 0;
+    set<Buffer*> _bufferDependency;
 };
 
 } // namespace gfx
